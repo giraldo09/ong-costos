@@ -41,6 +41,11 @@ def get_engine():
     url = os.getenv("DATABASE_URL")
     if not url:
         sys.exit("Falta DATABASE_URL en .env")
+    url = url.strip().strip("'\"")
+    if url.startswith("psql "):
+        url = url[5:].strip().strip("'\"")
+    # forzar el driver psycopg2 (instalado), sea cual sea el esquema pegado
+    url = "postgresql+psycopg2://" + url.split("://", 1)[1]
     return create_engine(url, pool_pre_ping=True)
 
 
@@ -117,7 +122,7 @@ def main():
     if a.init_schema:
         eng = get_engine()
         with eng.begin() as cx:
-            cx.exec_driver_sql(open("sql/schema.sql", encoding="utf-8").read())
+            cx.connection.cursor().execute(open("sql/schema.sql", encoding="utf-8").read())
         print("Esquema aplicado.")
         return
 
