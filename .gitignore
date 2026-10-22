@@ -7,3 +7,4 @@ data/processed/
 *.csv
 .env.*
 !.env.example
+!config/*.csv

@@ -1,0 +1,5 @@
+periodo,codigo,campo,valor_original,valor_nuevo,motivo
+202510,020320,ingresos_operacionales,20732000,0,"Copia erronea de CENA DE GALA (020339) en la fuente; el TOTAL de Biable la cuenta una sola vez"
+202510,020320,gastos_operacionales,7490346.76,0,"Copia erronea de CENA DE GALA (020339) en la fuente; el TOTAL de Biable la cuenta una sola vez"
+202510,020320,deficit_excedente,13241653.24,0,"Copia erronea de CENA DE GALA (020339) en la fuente; el TOTAL de Biable la cuenta una sola vez"
+202512,020320,deficit_excedente,200000,0,"Arrastre de noviembre: ingresos y gastos en 0 pero deficit 200000; no esta en el TOTAL de Biable"

@@ -60,6 +60,30 @@ def validar(df, total):
     return sumas, tot, dif, estado
 
 
+AJUSTES_CSV = os.path.join("config", "ajustes_manuales.csv")
+
+
+def aplicar_ajustes(df, periodo):
+    """Aplica correcciones documentadas de config/ajustes_manuales.csv.
+    Solo si el valor de la fuente coincide con valor_original (si Biable corrige el dato, no se toca).
+    Devuelve (df, lista de textos para carga_control.detalle)."""
+    if not os.path.exists(AJUSTES_CSV):
+        return df, []
+    notas = []
+    aj = pd.read_csv(AJUSTES_CSV, dtype={"codigo": str})
+    for r in aj[aj.periodo == periodo].itertuples():
+        m = df.centro_costo_codigo == r.codigo
+        if not m.any():
+            continue
+        actual = float(df.loc[m, r.campo].iloc[0])
+        if abs(actual - float(r.valor_original)) > 0.01:
+            notas.append(f"AJUSTE OMITIDO {r.codigo}.{r.campo}: la fuente trae {actual}, se esperaba {r.valor_original}")
+            continue
+        df.loc[m, r.campo] = float(r.valor_nuevo)
+        notas.append(f"AJUSTE {r.codigo}.{r.campo}: {r.valor_original} -> {r.valor_nuevo} ({r.motivo})")
+    return df, notas
+
+
 def cargar(path, engine, cats, dry_run=False):
     nombre_arch = os.path.basename(path)
     df = etl.extraer_bloques(path, modo="incremental")
@@ -69,12 +93,16 @@ def cargar(path, engine, cats, dry_run=False):
         d = df[df.duplicated("centro_costo_codigo", keep=False)].centro_costo_codigo.unique()
         raise ValueError(f"Codigos duplicados en {nombre_arch}: {list(d)}")
 
+    df, notas_ajuste = aplicar_ajustes(df, periodo)
     sumas, tot, dif, estado = validar(df, total)
     cat_de = dict(zip(cats.codigo.astype(str), cats.categoria))
     sin_mapa = [c for c in df.centro_costo_codigo if c not in cat_de]
-    detalle = f"{len(sin_mapa)} centros no estaban en la asignacion -> Sin categoría: {sin_mapa}" if sin_mapa else None
+    partes = notas_ajuste + ([f"{len(sin_mapa)} centros no estaban en la asignacion -> Sin categoría: {sin_mapa}"] if sin_mapa else [])
+    detalle = " | ".join(partes) or None
     resumen = {"archivo": nombre_arch, "periodo": periodo, "centros": len(df), "estado": estado,
-               "dif_max": max(abs(d) for d in dif.values()) if total else None, "sin_mapa": sin_mapa}
+               "dif_max": max(abs(d) for d in dif.values()) if total else None, "sin_mapa": sin_mapa,
+               "ajustes": len([n for n in notas_ajuste if n.startswith("AJUSTE ")]) - len([n for n in notas_ajuste if n.startswith("AJUSTE OMITIDO")]),
+               "omitidos": [n for n in notas_ajuste if n.startswith("AJUSTE OMITIDO")]}
     if dry_run:
         return resumen
 
@@ -141,6 +169,10 @@ def main():
             msg = str(e).split("\n")[0]
             sys.exit(f"ERROR en {os.path.basename(f)}: {type(e).__name__}: {msg[:300]}")
         print(f"{r['periodo']} | {r['centros']:>3} centros | {r['estado']:<10} | dif max={r['dif_max']} | {r['archivo']}")
+        if r["ajustes"]:
+            print(f"      {r['ajustes']} ajuste(s) manual(es) aplicado(s) (ver config/ajustes_manuales.csv)")
+        for o in r["omitidos"]:
+            print("      " + o)
         if r["sin_mapa"]:
             print(f"      aviso: sin categoria asignada -> Sin categoría: {r['sin_mapa']}")
 
