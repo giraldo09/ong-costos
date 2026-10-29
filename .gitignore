@@ -8,3 +8,5 @@ data/processed/
 .env.*
 !.env.example
 !config/*.csv
+.streamlit/secrets.toml
+.claude/
